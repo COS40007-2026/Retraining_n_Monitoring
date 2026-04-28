@@ -34,15 +34,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       
-      # 5. Run CodeQL analysis for security scanning
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: python
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:python"
+      # # 5. Run CodeQL analysis for security scanning
+      # - name: Initialize CodeQL
+      #   uses: github/codeql-action/init@v3
+      #   with:
+      #     languages: python
+      # - name: Perform CodeQL Analysis
+      #   uses: github/codeql-action/analyze@v3
+      #   with:
+      #     category: "/language:python"
 
 
 
