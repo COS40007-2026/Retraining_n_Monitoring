@@ -1,4 +1,3 @@
-# .github/workflows/train.yml
 name: MLOps Pipeline
 
 on:
@@ -18,19 +17,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout ───────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0        # full history needed for dvc metrics diff
+          fetch-depth: 0
 
-      # ── 2. Python setup ───────────────────────────────────────
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # ── 3. Cache pip ──────────────────────────────────────────
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
@@ -38,35 +34,24 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
 
-      # ── 4. Install dependencies ───────────────────────────────
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # ── 5. Configure DVC remote credentials ──────────────────
-      - name: Configure DVC remote
-        env:
-          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-          DAGSHUB_TOKEN:    ${{ secrets.DAGSHUB_TOKEN }}
-          # GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
-          # OR for S3:
-          # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # ── FIXED: no env block, secrets referenced directly in run ──
+      - name: Configure DVC remote (DagsHub)
         run: |
-          # dvc remote modify myremote gdrive_use_service_account true
-          # Adjust this block to match whichever remote you chose in Step 4
-          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-          DAGSHUB_TOKEN:    ${{ secrets.DAGSHUB_TOKEN }}
+          dvc remote modify myremote auth basic
+          dvc remote modify myremote user ${{ secrets.DAGSHUB_USERNAME }}
+          dvc remote modify myremote password ${{ secrets.DAGSHUB_TOKEN }}
 
-      # ── 6. Pull data from DVC remote ─────────────────────────
       - name: Pull data with DVC
         run: dvc pull
 
-      # ── 7. Override params from workflow_dispatch input ───────
       - name: Override epochs if provided
         if: github.event_name == 'workflow_dispatch'
         run: |
           python - <<'EOF'
-          import yaml, sys
+          import yaml
           with open("params.yaml") as f:
               p = yaml.safe_load(f)
           p["model"]["epochs"] = int("${{ github.event.inputs.epochs }}")
@@ -75,27 +60,18 @@ jobs:
           print(f"Epochs set to {p['model']['epochs']}")
           EOF
 
-      # ── 8. Reproduce DVC pipeline ────────────────────────────
-      # dvc repro only re-runs stages whose deps/params changed.
       - name: Run DVC pipeline
         run: dvc repro
 
-      # ── 9. Show and compare metrics ──────────────────────────
       - name: Show metrics
         run: |
           dvc metrics show
           dvc metrics diff HEAD~1 || echo "No previous run to compare against"
 
-      # ── 10. Push updated artifacts to DVC remote ─────────────
       - name: Push artifacts to DVC remote
-        env:
-          DAGSHUB_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
-          DAGSHUB_TOKEN:    ${{ secrets.DAGSHUB_TOKEN }}
         run: dvc push
 
-      # ── 11. Commit dvc.lock back to repo ─────────────────────
-      # dvc.lock records exactly what was run and with what data.
-      - name: Commit dvc.lock
+      - name: Commit dvc.lock and metrics
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -103,8 +79,7 @@ jobs:
           git diff --staged --quiet || git commit -m "update dvc.lock and metrics [skip ci]"
           git push
 
-      # ── 12. Upload artifacts for download from Actions UI ─────
-      - name: Upload model artifact
+      - name: Upload trained model
         uses: actions/upload-artifact@v4
         with:
           name: trained-model
@@ -121,7 +96,6 @@ jobs:
             dvclive/report.html
           retention-days: 30
 
-      # ── 13. Post metrics as PR comment ────────────────────────
       - name: Post PR comment with metrics diff
         if: github.event_name == 'pull_request'
         run: |
