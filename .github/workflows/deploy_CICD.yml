@@ -59,8 +59,10 @@ jobs:
         #   # Adjust this block to match whichever remote you chose in Step 4
         
       # ── Only pull input data, not model outputs ───────────────
-      - name: Reproduce pipeline
-        run: dvc repro 
+      - name: Pull input data
+        run: 
+          dvc pull train/train.csv
+          dvc pull test/test.csv 
 
       # ── Override params from workflow_dispatch input ───────
       - name: Override epochs if provided
