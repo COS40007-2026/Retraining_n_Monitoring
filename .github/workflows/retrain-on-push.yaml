@@ -1,0 +1,63 @@
+name: Auto Retrain on Data Push
+
+on:
+  push:
+    paths:
+      - 'data/*.csv'  # Trigger when new data is uploaded to data/ folder
+      - 'train/*.csv' # Or when train data changes
+      - 'test/*.csv'  # Or when test data changes
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Get all history for DVC
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        pip install dvc pandas numpy tensorflow scikit-learn evidently
+    
+    - name: Configure DVC remote
+      run: |
+        dvc remote modify origin url ${{ secrets.DVC_REMOTE_URL }}
+        dvc remote modify origin --local access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+        dvc remote modify origin --local secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    
+    - name: Pull latest data and models
+      run: dvc pull --allow-missing
+    
+    - name: Check for drift
+      id: drift
+      run: |
+        python src/monitor.py
+        echo "drift_detected=$(cat drift_status.txt)" >> $GITHUB_OUTPUT
+    
+    - name: Retrain model
+      if: success()
+      run: |
+        dvc repro  # Runs train and evaluate stages
+    
+    - name: Send drift notification
+      if: steps.drift.outputs.drift_detected == 'true'
+      run: |
+        # Send email/slack/teams notification
+        curl -X POST -H 'Content-type: application/json' \
+        --data '{"text":"⚠️ Data drift detected! Model has been retrained."}' \
+        ${{ secrets.SLACK_WEBHOOK_URL }}
+    
+    - name: Push new model and data versions
+      run: |
+        dvc push
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+        git add models/ artifacts/ train/ test/
+        git commit -m "Auto-retrain: New model from $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+        git push
