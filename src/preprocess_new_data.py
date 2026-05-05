@@ -1,6 +1,3 @@
-"""
-Standalone preprocessing for new data (no joblib dependency)
-"""
 import os
 import sys
 import json
@@ -8,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 print("="*70)
-print("🔄 PREPROCESSING NEW DATA (Standalone)")
+print("PREPROCESSING NEW DATA (Standalone)")
 print("="*70)
 
 def preprocess_new_data():
@@ -60,7 +57,7 @@ def preprocess_new_data():
     
     print(f" Available: {len(available_features)}/{len(feature_columns)}")
     if missing_features:
-        print(f"⚠️ Missing {len(missing_features)} features, filling with 0")
+        print(f" Missing {len(missing_features)} features, filling with 0")
         for col in missing_features:
             X_df[col] = 0
     
@@ -69,11 +66,11 @@ def preprocess_new_data():
     
     # Handle NaN values
     if np.isnan(X_new).any():
-        print(f"⚠️ Found NaN in features, filling with 0")
+        print(f" Found NaN in features, filling with 0")
         X_new = np.nan_to_num(X_new, nan=0.0)
     
     # Try to load scaler, but skip if corrupted
-    print("\n📊 Applying scaling...")
+    print("\n Applying scaling...")
     scaler_path = 'artifacts/preprocessing/scaler.pkl'
     if os.path.exists(scaler_path):
         try:
@@ -82,15 +79,15 @@ def preprocess_new_data():
             X_new_scaled = scaler.transform(X_new)
             print(" Scaler applied")
         except Exception as e:
-            print(f"⚠️ Could not load scaler: {e}")
-            print("⚠️ Using raw values without scaling")
+            print(f" Could not load scaler: {e}")
+            print(" Using raw values without scaling")
             X_new_scaled = X_new
     else:
-        print("⚠️ No scaler found, using raw values")
+        print(" No scaler found, using raw values")
         X_new_scaled = X_new
     
     # Check if we need CNN reshape
-    print("\n🔄 Checking model format...")
+    print("\n Checking model format...")
     import tensorflow as tf
     
     if os.path.exists('models/model.keras'):
@@ -112,7 +109,7 @@ def preprocess_new_data():
         print(f" Reshaped for CNN: {X_new_cnn.shape}")
     
     # Save preprocessed data
-    print("\n💾 Saving preprocessed data...")
+    print("\n Saving preprocessed data...")
     os.makedirs('artifacts/data', exist_ok=True)
     np.save('artifacts/data/X_new.npy', X_new_cnn)
     np.save('artifacts/data/y_new.npy', y_new)
@@ -125,7 +122,7 @@ def preprocess_new_data():
     print(f" Saved to artifacts/X_new_cnn.npy for compatibility")
     
     # Combine with training data for retraining
-    print("\n🔄 Preparing combined dataset...")
+    print("\n Preparing combined dataset...")
     if os.path.exists('train/train.csv'):
         train_df = pd.read_csv('train/train.csv')
         print(f" Original training: {len(train_df)} rows")
