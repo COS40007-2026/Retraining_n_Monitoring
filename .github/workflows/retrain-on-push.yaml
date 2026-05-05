@@ -41,35 +41,50 @@ jobs:
       run: dvc pull --allow-missing || echo "No existing data to pull"
     
     - name: Check for new data and preprocess
+      id: check_data
       run: |
         if [ -f "data/new_data.csv" ]; then
-          echo " New data detected, preprocessing..."
+          echo "[INFO] New data detected, preprocessing..."
           python src/preprocess_new_data.py
           echo "NEW_DATA=true" >> $GITHUB_ENV
+          echo "new_data=true" >> $GITHUB_OUTPUT
         else
-          echo " No new data found"
+          echo "[INFO] No new data found"
           echo "NEW_DATA=false" >> $GITHUB_ENV
+          echo "new_data=false" >> $GITHUB_OUTPUT
         fi
     
     - name: Run comprehensive monitoring
       id: monitoring
       run: |
         python src/monitor.py
+        MONITOR_EXIT=$?
+        echo "Monitor exit code: $MONITOR_EXIT"
+        
         if [ -f "retrain_needed.txt" ]; then
           RETRAIN=$(cat retrain_needed.txt)
           echo "retrain_needed=$RETRAIN" >> $GITHUB_OUTPUT
+          echo "RETRAIN_NEEDED=$RETRAIN" >> $GITHUB_ENV
         else
-          echo "retrain_needed=true" >> $GITHUB_OUTPUT
+          if [ $MONITOR_EXIT -eq 1 ]; then
+            echo "retrain_needed=true" >> $GITHUB_OUTPUT
+            echo "RETRAIN_NEEDED=true" >> $GITHUB_ENV
+          else
+            echo "retrain_needed=false" >> $GITHUB_OUTPUT
+            echo "RETRAIN_NEEDED=false" >> $GITHUB_ENV
+          fi
         fi
-      continue-on-error: false
+        
+        echo "[INFO] Final retrain_needed: ${{ env.RETRAIN_NEEDED }}"
     
-    - name: RETRAIN MODEL
-      if: steps.monitoring.outputs.retrain_needed == 'true' || env.NEW_DATA == 'true'
+    - name: Retrain model
+      if: success() && (env.RETRAIN_NEEDED == 'true' || env.NEW_DATA == 'true')
       run: |
         echo "=========================================="
-        echo " RETRAINING MODEL"
+        echo "RETRAINING MODEL"
         echo "=========================================="
-        echo "Reason: NEW_DATA=${{ env.NEW_DATA }}, RETRAIN_NEEDED=${{ steps.monitoring.outputs.retrain_needed }}"
+        echo "NEW_DATA: ${{ env.NEW_DATA }}"
+        echo "RETRAIN_NEEDED: ${{ env.RETRAIN_NEEDED }}"
         
         # Combine old and new data if new data exists
         if [ -f "data/new_data.csv" ]; then
@@ -94,8 +109,8 @@ jobs:
               
               # Save combined data
               combined_df.to_csv('train/train.csv', index=False)
-              print(' Combined data saved to train/train.csv')
-          "
+              print('Combined data saved to train/train.csv')
+        "
         fi
         
         # Force retrain the model
@@ -109,32 +124,28 @@ jobs:
         echo "${{ steps.monitoring.outputs.retrain_needed }}" > artifacts/metadata/retrain_triggered.txt
         
         echo ""
-        echo " Retraining completed!"
+        echo "Retraining completed!"
     
     - name: Evaluate new model
-      if: steps.monitoring.outputs.retrain_needed == 'true' || env.NEW_DATA == 'true'
+      if: success() && (env.RETRAIN_NEEDED == 'true' || env.NEW_DATA == 'true')
       run: |
         echo "Evaluating new model..."
         python src/evaluate.py
     
-    - name: Run monitoring again to verify improvement
-      if: steps.monitoring.outputs.retrain_needed == 'true' || env.NEW_DATA == 'true'
+    - name: Verify improvement with monitoring
+      if: success() && (env.RETRAIN_NEEDED == 'true' || env.NEW_DATA == 'true')
       run: |
         echo "Re-running monitoring to verify improvement..."
         python src/monitor.py || echo "Monitoring after retrain completed"
     
-    - name: Push new model and artifacts
-      if: steps.monitoring.outputs.retrain_needed == 'true' || env.NEW_DATA == 'true'
+    - name: Push to DVC remote
+      if: success() && (env.RETRAIN_NEEDED == 'true' || env.NEW_DATA == 'true')
       run: |
-        # Push to DVC remote
         dvc push
-        
-      continue-on-error: false
     
-    - name: Commit and push changes
-      if: env.RETRAIN_NEEDED == 'true' || env.NEW_DATA == 'true'
+    - name: Commit and push changes to Git
+      if: success() && (env.RETRAIN_NEEDED == 'true' || env.NEW_DATA == 'true')
       run: |
-        # Configure git
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
         git add artifacts/ models/ train/ test/ data/ || true
@@ -160,11 +171,10 @@ jobs:
         retention-days: 7
     
     - name: Send notification
-      if: steps.monitoring.outputs.retrain_needed == 'true' || env.NEW_DATA == 'true'
+      if: success() && (env.RETRAIN_NEEDED == 'true' || env.NEW_DATA == 'true')
       run: |
         echo "=========================================="
-        echo " AUTO-RETRAINING COMPLETED SUCCESSFULLY"
+        echo "AUTO-RETRAINING COMPLETED SUCCESSFULLY"
         echo "=========================================="
         echo "Model has been retrained with new data"
         echo "New model pushed to DVC and Git"
-        # Add webhook here if needed
