@@ -32,17 +32,17 @@ jobs:
     - name: Configure DVC remote
       run: |
         dvc remote modify origin auth basic
-          dvc remote modify origin user ${{ secrets.DAGSHUB_USERNAME }}
-          dvc remote modify origin password ${{ secrets.DAGSHUB_TOKEN }}
-          # name: Configure DVC remote
-          # env:
-          #   GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
-          #   # OR for S3:
-          #   # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          #   # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # run: |
-          #   dvc remote modify myremote gdrive_use_service_account true
-          #   # Adjust this block to match whichever remote you chose in Step 4
+        dvc remote modify origin user ${{ secrets.DAGSHUB_USERNAME }}
+        dvc remote modify origin password ${{ secrets.DAGSHUB_TOKEN }}
+        # name: Configure DVC remote
+        # env:
+        #   GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+        #   # OR for S3:
+        #   # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        #   # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        # run: |
+        #   dvc remote modify myremote gdrive_use_service_account true
+        #   # Adjust this block to match whichever remote you chose in Step 4
     
     - name: Pull latest data and models
       run: dvc pull --allow-missing
