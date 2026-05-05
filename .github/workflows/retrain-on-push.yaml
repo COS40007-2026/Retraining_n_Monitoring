@@ -3,6 +3,7 @@ name: Auto Retrain and Monitor
 on:
   push:
     paths:
+      - 'github/workflows/retrain-on-push.yaml'
       - 'data/*.csv'      # New data uploaded
       - 'train/*.csv'     # Training data changed
       - 'test/*.csv'      # Test data changed
