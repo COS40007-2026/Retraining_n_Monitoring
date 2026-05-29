@@ -65,7 +65,7 @@ def load_all_data():
             for root, dirs, files in os.walk('artifacts'):
                 for file in files:
                     logger.info(f"  - {root}/{file}")
-        return None, None, None, None, None, None
+        return None, None, None, None, None, None, None
     
     X_test = np.load(X_test_path)
     y_test = np.load(y_test_path)
