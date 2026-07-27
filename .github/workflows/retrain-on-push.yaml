@@ -3,12 +3,12 @@ name: Auto Retrain on New Data
 on:
   push:
     paths:
-      - '.github/workflows/retrain-on-push.yaml'
-      - 'data/*.csv'
-      - 'train/*.csv'
-      - 'test/*.csv'
+      # - '.github/workflows/retrain-on-push.yaml'
+      # - 'data/*.csv'
+      # - 'train/*.csv'
+      # - 'test/*.csv'
   schedule:
-    - cron: '0 */12 * * *'
+    # - cron: '0 */12 * * *'
   workflow_dispatch:
 
 jobs:
